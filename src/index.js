@@ -1,55 +1,63 @@
-import { fetchCatByBreed, fetchBreeds } from './cat-api.js'
-import SlimSelect from 'slim-select'
-import 'slim-select/dist/slimselect.css'
-import { Loading } from 'notiflix/build/notiflix-loading-aio';
+import { fetchBreeds, fetchCatByBreed } from './cat-api';
 import Notiflix from 'notiflix';
-        
-const catInfo = document.querySelector('.cat-info');
+import SlimSelect from 'slim-select';
+import 'slim-select/dist/slimselect.css';
+
 const select = document.querySelector('.breed-select');
+select.addEventListener('change', onChangeSelect);
+
+const divPicture = document.querySelector('.cat-info-picture');
+const divInfo = document.querySelector('.cat-info-desc');
 const loader = document.querySelector('.loader');
-const errorEl = document.querySelector('.error');
 
-updateSelect();
+fetchAndRenderBreeds();
 
-function updateSelect(data) {
-    fetchBreeds(data).then(data => {
-        const markupBreeds = data.map(({id, name }) => {
-            return `<option value ='${id}'>${name}</option>`;
-        }).join('')
-        select.insertAdjacentHTML('beforeend', markupBreeds);
-        new SlimSelect({
-            select: '#selectElement'
-        });
-    }).catch(() => Notify.failure('Oops! Something went wrong! Try reloading the page!'))
-};
-
-select.addEventListener("change", onSelected);
-
-Loading.remove('loader');
-errorEl.style.display = 'none'
-loader.style.display = 'none'
-
-function onSelected(e) {
-    Loading.dots();
-    let breedId = e.target.value;
-
-    fetchCatByBreed(breedId).then((data) => {
-
-        const markupCats = data[0].breeds
-            .map(({ name, description, temperament }) => {
-            return `<h1>${name}</h1><p>${description}</p><p>Temperament: ${temperament}</p>`;
-        }).join('');
-
-        const markupPicture = data.map(({url}) => {
-            return `<img src='${url}' width='500'>`
-        }).join('');
-
-        catInfo.insertAdjacentHTML('afterbegin', markupCats);
-        catInfo.insertAdjacentHTML('beforeend', markupPicture);
+function fetchAndRenderBreeds() {
+  loader.classList.remove('invisible');
+  fetchBreeds()
+    .then(cats => updateSelect(cats))
+    .catch(error => {
+      Notiflix.Notify.failure(
+        'Oops! Something went wrong! Try reloading the page!'
+      );
     })
-    .catch(() => Notiflix.Notify.failure('Oops! Something went wrong! Try reloading the page!'))
     .finally(() => {
-        Loading.remove();
+      loader.classList.add('invisible');
+      select.classList.remove('invisible');
     });
-    catInfo.innerHTML = '';
-};
+}
+
+function onChangeSelect(e) {
+  loader.classList.remove('invisible');
+  divPicture.innerHTML = '';
+  divInfo.innerHTML = '';
+  const breedId = e.target.value;
+
+  fetchCatByBreed(breedId)
+    .then(breed => updateCatInfo(breed))
+    .catch(error => {
+      Notiflix.Notify.failure(
+        'Oops! Something went wrong! Try reloading the page!'
+      );
+    })
+    .finally(() => loader.classList.add('invisible'));
+}
+
+function updateSelect(cats) {
+  const markupBreeds = cats
+    .map(({ reference_image_id, name }) => {
+      return `<option value =${reference_image_id}>${name}</option>`;
+    })
+    .join('');
+  select.insertAdjacentHTML('beforeend', markupBreeds);
+  new SlimSelect({
+    select: '#single',
+  });
+}
+
+function updateCatInfo(breed) {
+  const markupPicture = `<img src='${breed.url}' alt='${breed.id}' width='400'>`;
+  const markupDesc = `<h1 class="cat-info-desc">${breed.breeds[0].name}</h1><p class="cat-info-desc">${breed.breeds[0].description}</p><p class="cat-info-desc"><b>Temperament:</b> ${breed.breeds[0].temperament}</p>`;
+  divPicture.insertAdjacentHTML('beforeend', markupPicture);
+  divInfo.insertAdjacentHTML('beforeend', markupDesc);
+}
